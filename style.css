@@ -1118,7 +1118,7 @@ body {
 .game-props {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
@@ -1133,10 +1133,45 @@ body {
   padding: 8px 10px;
 }
 
+.prop-card {
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.75);
+  border-radius: 14px;
+  padding: 10px 11px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.prop-card.vibe-hit {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.28);
+}
+
+.prop-card.vibe-dead {
+  opacity: 0.72;
+  background: rgba(0,0,0,0.04);
+}
+
+.prop-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .prop-name {
   font-size: 0.75rem;
   font-weight: 800;
   letter-spacing: -0.01em;
+}
+
+.prop-statline {
+  font-family: var(--mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #4b4658;
+  letter-spacing: 0.01em;
 }
 
 .prop-line {
@@ -1146,6 +1181,52 @@ body {
   color: #4b4658;
 }
 
+.prop-bar {
+  height: 6px;
+  border-radius: 99px;
+  background: rgba(0,0,0,0.08);
+  overflow: hidden;
+  margin-top: 2px;
+}
+
+.prop-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  background: linear-gradient(90deg, #a78bfa, #fb923c);
+  transition: width 0.4s ease;
+}
+
+.prop-bar-fill.vibe-hit {
+  background: linear-gradient(90deg, #4ade80, #22c55e);
+}
+
+.prop-bar-fill.vibe-alive {
+  background: linear-gradient(90deg, #38bdf8, #a78bfa);
+}
+
+.prop-bar-fill.vibe-dead {
+  background: rgba(0,0,0,0.18);
+}
+
+.prop-bar-fill.vibe-pre {
+  background: linear-gradient(90deg, #c4b5fd, #ddd6fe);
+}
+
+.prop-vibe {
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #5b5568;
+  letter-spacing: 0.01em;
+}
+
+.prop-note {
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: #9a95a5;
+  letter-spacing: 0.02em;
+}
+
+.prop-badge,
 .prop-hr {
   font-size: 0.62rem;
   font-weight: 800;
@@ -1154,16 +1235,30 @@ body {
   border-radius: 99px;
   background: rgba(0,0,0,0.06);
   color: var(--muted);
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
-.prop-hr.hit {
+.prop-badge.hit,
+.prop-hr.hit,
+.prop-hr.winner-yes {
   background: rgba(34, 197, 94, 0.2);
   color: #15803d;
 }
 
-.prop-hr.winner-yes {
-  background: rgba(34, 197, 94, 0.18);
-  color: #15803d;
+.prop-badge.alive {
+  background: rgba(56, 189, 248, 0.18);
+  color: #0369a1;
+}
+
+.prop-badge.dead {
+  background: rgba(0,0,0,0.08);
+  color: #6b7280;
+}
+
+.prop-badge.pre {
+  background: rgba(167, 139, 250, 0.16);
+  color: #6d28d9;
 }
 
 .game-plays-label { margin-top: 2px; margin-bottom: 6px; }

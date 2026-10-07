@@ -147,39 +147,12 @@
       if (data.venue) bits.push(data.venue);
       if (el.matchup) el.matchup.textContent = bits.length ? bits.join(" · ") : "Lineups loading…";
       if (el.props) {
-        var badge = data.isLive
-          ? "LIVE"
-          : data.isFinal && data.winnerHint
-            ? data.winnerHint + " WINS"
-            : "OPEN";
-        var rows = [
-          '<div class="prop-row"><div class="prop-name">Brewers win</div><div class="prop-line">' +
-            esc(away.abbr || "MIL") +
-            " " +
-            (away.runs || 0) +
-            " – " +
-            (home.runs || 0) +
-            " " +
-            esc(home.abbr || "SD") +
-            '</div><span class="prop-hr">' +
-            esc(badge) +
-            "</span></div>"
-        ];
-        (data.props || []).forEach(function (p) {
-          var g = p.game || {};
-          rows.push(
-            '<div class="prop-row"><div class="prop-name">' +
-              esc(p.name) +
-              ' 1+ HR</div><div class="prop-line">' +
-              esc(g.summary || "0-0") +
-              '</div><span class="prop-hr' +
-              (p.propHit ? " hit" : "") +
-              '">' +
-              esc(p.propHit ? "HR OK" : (g.hr || 0) + " HR") +
-              "</span></div>"
-          );
-        });
-        el.props.innerHTML = rows.join("");
+        if (window.BetsGameFeed && typeof window.BetsGameFeed.renderPropsHtml === "function") {
+          el.props.innerHTML = window.BetsGameFeed.renderPropsHtml(data);
+        } else {
+          el.props.innerHTML =
+            '<div class="livebook-empty">Prop monitor needs updated game-feed.js</div>';
+        }
       }
       if (el.plays) {
         var plays = data.plays || [];

@@ -476,26 +476,19 @@
 
   function renderProps(data) {
     if (!el.props) return;
+    if (window.BetsGameFeed && typeof window.BetsGameFeed.renderPropsHtml === "function") {
+      el.props.innerHTML = window.BetsGameFeed.renderPropsHtml(data);
+      return;
+    }
     const props = data.props || [];
     const rows = [];
-
-    // Game winner row tied to resting MIL win bet
     const away = data.away || {};
     const home = data.home || {};
-    let winnerBadge = "OPEN";
-    let winnerCls = "prop-hr";
-    if (data.isFinal && data.winnerHint === "MIL") {
-      winnerBadge = "MIL WINS";
-      winnerCls = "prop-hr winner-yes";
-    } else if (data.isFinal && data.winnerHint && data.winnerHint !== "MIL") {
-      winnerBadge = data.winnerHint + " WINS";
-    } else if (data.isLive) {
-      winnerBadge = "LIVE";
-    }
+    const badge = data.isLive ? "LIVE" : data.isFinal ? (data.winnerHint || "?") + " WINS" : "OPEN";
     rows.push(
-      '<div class="prop-row">' +
-        '<div class="prop-name">Brewers win</div>' +
-        '<div class="prop-line">' +
+      '<div class="prop-card"><div class="prop-card-top"><div class="prop-name">Brewers win</div><span class="prop-badge">' +
+        esc(badge) +
+        '</span></div><div class="prop-statline">' +
         esc(away.abbr || "MIL") +
         " " +
         (away.runs != null ? away.runs : 0) +
@@ -503,40 +496,20 @@
         (home.runs != null ? home.runs : 0) +
         " " +
         esc(home.abbr || "SD") +
-        "</div>" +
-        '<span class="' +
-        winnerCls +
-        '">' +
-        esc(winnerBadge) +
-        "</span>" +
-        "</div>"
+        "</div></div>"
     );
-
     props.forEach(function (p) {
       const g = p.game || {};
-      const hr = g.hr || 0;
-      const badge = p.propHit ? "HR ✓" : hr + " HR";
       rows.push(
-        '<div class="prop-row">' +
-          '<div class="prop-name">' +
-          esc(p.name) +
-          " 1+ HR</div>" +
-          '<div class="prop-line">' +
-          esc(g.summary || g.h + "-" + g.ab) +
-          " · AB " +
-          (g.ab != null ? g.ab : 0) +
-          " · RBI " +
-          (g.rbi != null ? g.rbi : 0) +
-          "</div>" +
-          '<span class="prop-hr' +
-          (p.propHit ? " hit" : "") +
-          '">' +
-          esc(badge) +
-          "</span>" +
-          "</div>"
+        '<div class="prop-card"><div class="prop-card-top"><div class="prop-name">' +
+          esc(p.label || p.name) +
+          '</div><span class="prop-badge">' +
+          esc(p.propHit ? "HIT" : String(p.current != null ? p.current : g.hr || 0)) +
+          '</span></div><div class="prop-statline">' +
+          esc(g.summary || "0-0") +
+          "</div></div>"
       );
     });
-
     el.props.innerHTML = rows.join("");
   }
 
