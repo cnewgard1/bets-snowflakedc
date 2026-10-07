@@ -34,6 +34,7 @@
     if (el) el.innerHTML = '<div class="livebook-empty">' + esc(msg) + "</div>";
   }
 
+  // Kill any trading stubs on public host
   try {
     window.__KALSHI__ = Object.assign({}, window.__KALSHI__ || {}, { live: false, watchOnly: true });
     if (window.KalshiClient && window.KalshiClient.prototype) {
