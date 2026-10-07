@@ -1116,10 +1116,11 @@ body {
 }
 
 .game-props {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
   margin-bottom: 10px;
+  align-items: stretch;
 }
 
 .prop-row {
@@ -1136,11 +1137,20 @@ body {
 .prop-card {
   background: rgba(255,255,255,0.55);
   border: 1px solid rgba(255,255,255,0.75);
-  border-radius: 14px;
-  padding: 10px 11px 8px;
+  border-radius: 12px;
+  padding: 8px 8px 6px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  min-width: 0;
+  min-height: 100%;
+}
+
+/* Game winner spans full matrix width */
+.prop-card.prop-game {
+  grid-column: 1 / -1;
+  padding: 9px 10px 7px;
+  border-radius: 14px;
 }
 
 .prop-card.vibe-hit {
@@ -1177,17 +1187,34 @@ body {
 }
 
 .prop-name {
-  font-size: 0.75rem;
+  font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: -0.01em;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.prop-card.prop-game .prop-name {
+  font-size: 0.78rem;
+  white-space: normal;
 }
 
 .prop-statline {
   font-family: var(--mono);
-  font-size: 0.62rem;
+  font-size: 0.56rem;
   font-weight: 700;
   color: #4b4658;
   letter-spacing: 0.01em;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.prop-card.prop-game .prop-statline {
+  white-space: normal;
+  font-size: 0.62rem;
 }
 
 .prop-line {
@@ -1198,11 +1225,11 @@ body {
 }
 
 .prop-bar {
-  height: 6px;
+  height: 5px;
   border-radius: 99px;
   background: rgba(0,0,0,0.08);
   overflow: hidden;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .prop-bar-fill {
@@ -1241,10 +1268,19 @@ body {
 }
 
 .prop-vibe {
-  font-size: 0.6rem;
+  font-size: 0.52rem;
   font-weight: 700;
   color: #5b5568;
   letter-spacing: 0.01em;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.prop-card.prop-game .prop-vibe {
+  font-size: 0.58rem;
+  -webkit-line-clamp: 3;
 }
 .prop-card.vibe-warm .prop-vibe { color: #c2410c; }
 .prop-card.vibe-hot .prop-vibe { color: #9a3412; }
@@ -1255,12 +1291,16 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
-  margin-top: 2px;
+  gap: 4px;
+  margin-top: 1px;
   font-family: var(--mono);
-  font-size: 0.62rem;
+  font-size: 0.55rem;
   font-weight: 800;
   letter-spacing: 0.01em;
+  flex-wrap: wrap;
+}
+.prop-card.prop-game .prop-money {
+  font-size: 0.62rem;
 }
 .prop-money .prop-stake {
   color: #4b4658;
@@ -1291,17 +1331,27 @@ body {
 }
 .prop-chance-pct {
   font-family: var(--mono);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: -0.02em;
   color: #1f2937;
 }
+.prop-card.prop-game .prop-chance-pct {
+  font-size: 0.82rem;
+}
 .prop-chance-tag {
-  font-size: 0.5rem;
+  font-size: 0.45rem;
   font-weight: 700;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   color: #9a95a5;
   text-transform: uppercase;
+  line-height: 1.2;
+  text-align: right;
+  max-width: 58%;
+}
+.prop-card.prop-game .prop-chance-tag {
+  font-size: 0.5rem;
+  max-width: none;
 }
 .prop-card.vibe-hit .prop-chance-pct { color: #15803d; }
 .prop-card.vibe-warm .prop-chance-pct { color: #c2410c; }
@@ -1310,23 +1360,32 @@ body {
 .prop-card.vibe-dead .prop-chance-pct { color: #6b7280; }
 
 .prop-note {
-  font-size: 0.52rem;
+  font-size: 0.48rem;
   font-weight: 600;
   color: #9a95a5;
   letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+/* Keep matrix cells tight — note only on full-width game card */
+.prop-card:not(.prop-game) .prop-note {
+  display: none;
 }
 
 .prop-badge,
 .prop-hr {
-  font-size: 0.62rem;
+  font-size: 0.55rem;
   font-weight: 800;
-  letter-spacing: 0.04em;
-  padding: 3px 8px;
+  letter-spacing: 0.03em;
+  padding: 2px 6px;
   border-radius: 99px;
   background: rgba(0,0,0,0.06);
   color: var(--muted);
   white-space: nowrap;
   flex-shrink: 0;
+}
+.prop-card.prop-game .prop-badge {
+  font-size: 0.62rem;
+  padding: 3px 8px;
 }
 
 .prop-badge.hit,
@@ -1364,6 +1423,39 @@ body {
 .prop-badge.pre {
   background: rgba(167, 139, 250, 0.16);
   color: #6d28d9;
+}
+
+
+/* Prop monitor matrix — screen-fit / mobile */
+@media (max-width: 340px) {
+  .game-props {
+    grid-template-columns: 1fr;
+  }
+  .prop-card.prop-game {
+    grid-column: auto;
+  }
+}
+
+@media (min-width: 520px) {
+  .phone {
+    max-width: 560px;
+  }
+  .game-props {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .prop-card.prop-game {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (min-width: 760px) {
+  .phone {
+    max-width: 720px;
+  }
+  .game-props {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
 }
 
 .game-plays-label { margin-top: 2px; margin-bottom: 6px; }
