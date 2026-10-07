@@ -67,6 +67,7 @@
         setOk();
         gate.remove();
         document.documentElement.style.overflow = "";
+        document.documentElement.classList.remove("auth-pending");
         document.documentElement.classList.add("authed");
         window.dispatchEvent(new Event("bets-authed"));
       } else {

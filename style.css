@@ -1209,4 +1209,4 @@ body {
 
 
 /* Public auth gate */
-html.auth-pending body > .page { visibility: hidden; }
+html.auth-pending:not(.authed) body > .page { visibility: hidden; }
