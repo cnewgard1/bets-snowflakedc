@@ -1282,6 +1282,33 @@ body {
   color: #6b7280;
 }
 
+.prop-chance {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 1px;
+}
+.prop-chance-pct {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #1f2937;
+}
+.prop-chance-tag {
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #9a95a5;
+  text-transform: uppercase;
+}
+.prop-card.vibe-hit .prop-chance-pct { color: #15803d; }
+.prop-card.vibe-warm .prop-chance-pct { color: #c2410c; }
+.prop-card.vibe-hot .prop-chance-pct { color: #9a3412; }
+.prop-card.vibe-critical .prop-chance-pct { color: #b91c1c; }
+.prop-card.vibe-dead .prop-chance-pct { color: #6b7280; }
+
 .prop-note {
   font-size: 0.52rem;
   font-weight: 600;

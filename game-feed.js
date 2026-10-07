@@ -82,6 +82,92 @@
   const BF_PER_IP = 3.8;
   const EXPECTED_IP_START = 5.5;
 
+  // Casual per-opportunity rates for fun success % (NOT Kalshi mids / market prices).
+  const SUCCESS_RATE = {
+    hr: 0.035, // HR per PA
+    hits: 0.27, // hit per AB/PA
+    rbi: 0.12, // RBI event per PA (rough)
+    ks: 0.22, // K per batter faced
+  };
+
+  function clampPct(n) {
+    const x = Math.round(Number(n));
+    if (!isFinite(x)) return 0;
+    return Math.max(0, Math.min(100, x));
+  }
+
+  /** P(at least k successes in n Bernoulli trials) — small-k exact, else soft curve. */
+  function bernoulliAtLeast(p, n, k) {
+    if (k <= 0) return 1;
+    if (n <= 0 || p <= 0) return 0;
+    if (p >= 1) return 1;
+    const trials = Math.max(0, Math.min(40, Math.round(n * 10) / 10));
+    if (k === 1) return 1 - Math.pow(1 - p, trials);
+    if (k === 2) {
+      const q = 1 - p;
+      const p0 = Math.pow(q, trials);
+      const p1 = trials * p * Math.pow(q, Math.max(0, trials - 1));
+      return Math.max(0, 1 - p0 - p1);
+    }
+    // k >= 3: Poisson-ish soft curve from expected count
+    const expected = p * trials;
+    if (expected <= 0) return 0;
+    // P(X >= k) ≈ 1 - e^{-λ} * sum_{i=0}^{k-1} λ^i / i!
+    let term = Math.exp(-expected);
+    let cdf = term;
+    for (let i = 1; i < k; i++) {
+      term *= expected / i;
+      cdf += term;
+    }
+    return Math.max(0, Math.min(1, 1 - cdf));
+  }
+
+  /**
+   * Simple success possibility % from remaining ABs/IP/BF + progress vs line.
+   * Hit → 100, dead → 0. Labeled in UI as estimate, not Kalshi mid.
+   */
+  function estimateSuccessPct(opts) {
+    const vibe = opts.vibe;
+    if (vibe === "hit") return 100;
+    if (vibe === "dead") return 0;
+    const line = opts.line != null ? Number(opts.line) : null;
+    const current = opts.current != null ? Number(opts.current) : 0;
+    if (line != null && current >= line) return 100;
+    const need = line != null ? Math.max(0, line - current) : 1;
+    if (need === 0) return 100;
+    const est = opts.estRemaining != null ? Number(opts.estRemaining) : 0;
+    const kind = opts.kind || "hits";
+    const p = SUCCESS_RATE[kind] != null ? SUCCESS_RATE[kind] : 0.15;
+    let raw = bernoulliAtLeast(p, est, need);
+    // Mild late-game dampener when still short and clock is mostly spent
+    const progressPct = opts.progressPct != null ? Number(opts.progressPct) : 0;
+    if (need > 0 && progressPct >= 80 && est < need * (kind === "ks" ? 4 : 1.2)) {
+      raw *= 0.85;
+    }
+    // Live range: keep 1–99 until terminal so cards don't read like settled
+    const pct = clampPct(raw * 100);
+    if (opts.isLive || opts.started) {
+      if (pct <= 0 && est > 0) return 1;
+      if (pct >= 100) return 99;
+    }
+    return pct;
+  }
+
+  /** Brewers-win heuristic from lead + innings left (estimate, not Kalshi mid). */
+  function estimateWinSuccessPct(lead, innN, isLive, isFinal, winnerHint) {
+    if (isFinal && winnerHint === "MIL") return 100;
+    if (isFinal) return 0;
+    if (!isLive) return 48; // MIL away pregame prior — rough
+    const inn = innN != null ? Number(innN) || 1 : 1;
+    const innLeft = Math.max(0.25, 9 - inn + 0.5);
+    const leverage = 1 + (1 - Math.min(1, innLeft / 9)) * 2.2;
+    let pct = 50 + lead * 7 * leverage;
+    if (lead < 0 && inn >= 7) pct -= (inn - 6) * 6;
+    if (lead > 0 && inn >= 8) pct += 8;
+    if (lead === 0 && inn >= 8) pct = 45;
+    return Math.max(1, Math.min(99, Math.round(pct)));
+  }
+
   const TEAM_ABBR = { MIL: "Milwaukee Brewers", SD: "San Diego Padres" };
   const MLB_TEAMS =
     "MIL|SD|LAD|ATL|NYY|BOS|CHC|NYM|PHI|HOU|TEX|SEA|SF|OAK|TOR|TB|MIN|CLE|DET|KC|CWS|CIN|PIT|STL|COL|ARI|MIA|WSH";
@@ -267,6 +353,7 @@
         progressPct: 100,
         vibe: "dead",
         vibeLabel: "Final · no cash",
+        successPct: 0,
         detail: kind === "ks" ? (game.ip || "0") + " IP" : (game.ab || 0) + " AB",
       };
     }
@@ -278,6 +365,7 @@
         progressPct: 100,
         vibe: "hit",
         vibeLabel: "HIT ✓",
+        successPct: 100,
         detail: kind === "ks" ? current + " K" : null,
       };
     }
@@ -301,6 +389,16 @@
         started,
       });
       const ipLabel = Math.round(ipLeft * 10) / 10;
+      const successPct = estimateSuccessPct({
+        kind: "ks",
+        current,
+        line,
+        estRemaining: bfLeft,
+        progressPct,
+        vibe,
+        isLive: ctx.isLive,
+        started,
+      });
       return {
         current,
         estRemaining: bfLeft,
@@ -309,6 +407,7 @@
         vibe,
         vibeLabel: dwindleVibeLabel(vibe, progressPct, current, Math.round(bfLeft), "BF") +
           " · " + current + " K",
+        successPct,
         detail: (game.ip || "0") + " IP · " + (game.bf || 0) + " BF",
       };
     }
@@ -340,6 +439,16 @@
     if (kind === "hits") unit = "AB";
     if (kind === "rbi") unit = "AB";
     if (kind === "hr") unit = "AB";
+    const successPct = estimateSuccessPct({
+      kind: kind,
+      current,
+      line,
+      estRemaining: estPA,
+      progressPct,
+      vibe,
+      isLive: ctx.isLive,
+      started,
+    });
     return {
       current,
       estRemaining: estPA,
@@ -347,6 +456,7 @@
       progressPct,
       vibe,
       vibeLabel: dwindleVibeLabel(vibe, progressPct, current, estPA, unit),
+      successPct,
       detail: (game.summary || ab + " AB") + (kind === "hr" ? " · " + (game.hr || 0) + " HR" : ""),
     };
   }
@@ -477,6 +587,7 @@
     let winnerVibe = "pre";
     let winnerPct = 8;
     let winnerLabel = "Pregame · waiting on first pitch";
+    let winnerSuccess = 48;
     const milRuns = away.runs != null ? Number(away.runs) : 0;
     const oppRuns = home.runs != null ? Number(home.runs) : 0;
     const lead = milRuns - oppRuns;
@@ -486,12 +597,14 @@
       winnerCls = "prop-badge hit";
       winnerVibe = "hit";
       winnerPct = 100;
+      winnerSuccess = 100;
       winnerLabel = "Final · Brewers cash";
     } else if (data.isFinal && data.winnerHint && data.winnerHint !== "MIL") {
       winnerBadge = data.winnerHint + " WINS";
       winnerCls = "prop-badge dead";
       winnerVibe = "dead";
       winnerPct = 100;
+      winnerSuccess = 0;
       winnerLabel = "Final · " + escHtml(data.winnerHint || "?");
     } else if (data.isLive) {
       winnerBadge = "LIVE";
@@ -512,6 +625,9 @@
       else if (winnerVibe === "hot") winnerLabel = "Getting hot · late scoreboard";
       else if (winnerVibe === "warm") winnerLabel = "Warming · clock ticking";
       else winnerLabel = "Live · scoreboard watch (not a Kalshi mid)";
+      winnerSuccess = estimateWinSuccessPct(lead, innN, true, false, data.winnerHint);
+    } else {
+      winnerSuccess = estimateWinSuccessPct(0, 1, false, false, null);
     }
 
     rows.push(
@@ -539,6 +655,12 @@
         '" style="width:' +
         winnerPct +
         '%"></div></div>' +
+        '<div class="prop-chance">' +
+        '<span class="prop-chance-pct">' +
+        (winnerVibe === "hit" || winnerVibe === "dead"
+          ? winnerSuccess + "%"
+          : "~" + winnerSuccess + "%") +
+        '</span><span class="prop-chance-tag">est success · not Kalshi mid</span></div>' +
         '<div class="prop-vibe">' +
         winnerLabel +
         "</div>" +
@@ -594,6 +716,25 @@
 
       const vibe = o.vibe || "pre";
       const pct = o.progressPct != null ? o.progressPct : 0;
+      let successPct = o.successPct;
+      if (successPct == null) {
+        if (vibe === "hit") successPct = 100;
+        else if (vibe === "dead") successPct = 0;
+        else successPct = estimateSuccessPct({
+          kind: kind,
+          current: o.current != null ? o.current : 0,
+          line: p.line,
+          estRemaining: o.estRemaining,
+          progressPct: pct,
+          vibe: vibe,
+          isLive: data.isLive,
+          started: vibe !== "pre",
+        });
+      }
+      const successTxt =
+        vibe === "hit" || vibe === "dead"
+          ? successPct + "%"
+          : "~" + successPct + "%";
       rows.push(
         '<div class="prop-card vibe-' +
           escHtml(vibe) +
@@ -610,6 +751,10 @@
           '<div class="prop-statline">' +
           escHtml(statline) +
           "</div>" +
+          '<div class="prop-chance">' +
+          '<span class="prop-chance-pct">' +
+          escHtml(successTxt) +
+          '</span><span class="prop-chance-tag">est success · not Kalshi mid</span></div>' +
           '<div class="prop-bar"><div class="prop-bar-fill vibe-' +
           escHtml(vibe) +
           '" style="width:' +
@@ -624,7 +769,7 @@
           formatFillHtml(resolveFill(p), vibe) +
           (vibe === "hit" || vibe === "dead"
             ? ""
-            : '<div class="prop-note">est from innings left × ~1 PA/inn · not a Kalshi mid</div>') +
+            : '<div class="prop-note">heuristic from remaining ABs/IP · not a Kalshi mid</div>') +
           "</div>"
       );
     });
@@ -949,6 +1094,8 @@
     attachOpportunities,
     pickDwindleVibe,
     buildOpportunity,
+    estimateSuccessPct,
+    estimateWinSuccessPct,
     mergePropFills,
     KNOWN_PROP_FILLS,
     TRACKED_PROPS,
