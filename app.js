@@ -344,6 +344,11 @@
         );
       }
       applyStatus(data.meta);
+      try {
+        if (window.BetsGameFeed && typeof window.BetsGameFeed.mergePropFills === "function") {
+          window.BetsGameFeed.mergePropFills(data.positions || []);
+        }
+      } catch (eMerge) {}
       window.__deskUseLivePortfolio = true;
       renderBook(data);
       console.log(

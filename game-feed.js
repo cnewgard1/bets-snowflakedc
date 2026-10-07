@@ -1,6 +1,18 @@
 /* Public MLB/ESPN game feed for static hosting. No Kalshi secrets. */
 (function (global) {
   // Tracked props: HR / hits / RBI / K monitors. Fun opportunity estimates — not Kalshi mids.
+  // Known filled YES positions (contracts @ cost → max $1/contract payout).
+  // Used when no live-book proxy; mergePropFills() can override from positions.
+  const KNOWN_PROP_FILLS = {
+    brewers_win: { contracts: 90, cost: 39.6, payout: 90, tickerHint: "KXMLBGAME" },
+    bauers_hr: { contracts: 166, cost: 24.9, payout: 166, tickerHint: "JBAUERS" },
+    yelich_hr: { contracts: 222, cost: 19.98, payout: 222, tickerHint: "CYELICH" },
+    ortiz_hr: { contracts: 300, cost: 15.0, payout: 300, tickerHint: "JORTIZ" },
+    chourio_h: { contracts: 15, cost: 9.75, payout: 15, tickerHint: "JCHOURIO" },
+    contreras_rbi: { contracts: 25, cost: 7.5, payout: 25, tickerHint: "WCONTRERAS" },
+    may_k: { contracts: 11, cost: 6.05, payout: 11, tickerHint: "DMAY3-3" },
+  };
+
   const TRACKED_PROPS = [
     {
       key: "bauers_hr",
@@ -10,6 +22,7 @@
       kind: "hr",
       line: 1,
       role: "batter",
+      fill: KNOWN_PROP_FILLS.bauers_hr,
     },
     {
       key: "yelich_hr",
@@ -19,6 +32,7 @@
       kind: "hr",
       line: 1,
       role: "batter",
+      fill: KNOWN_PROP_FILLS.yelich_hr,
     },
     {
       key: "ortiz_hr",
@@ -28,6 +42,7 @@
       kind: "hr",
       line: 1,
       role: "batter",
+      fill: KNOWN_PROP_FILLS.ortiz_hr,
     },
     {
       key: "chourio_h",
@@ -37,6 +52,7 @@
       kind: "hits",
       line: 1,
       role: "batter",
+      fill: KNOWN_PROP_FILLS.chourio_h,
     },
     {
       key: "contreras_rbi",
@@ -46,15 +62,17 @@
       kind: "rbi",
       line: 1,
       role: "batter",
+      fill: KNOWN_PROP_FILLS.contreras_rbi,
     },
     {
       key: "may_k",
       match: ["dustin may"],
       player: "Dustin May",
-      label: "May Ks",
+      label: "May 3+ Ks",
       kind: "ks",
-      line: null,
+      line: 3,
       role: "pitcher",
+      fill: KNOWN_PROP_FILLS.may_k,
     },
   ];
 
@@ -275,8 +293,81 @@
         current: opp.current,
         opportunity: opp,
         propHit: p.line != null ? opp.current >= p.line : !!p.propHit,
+        fill: p.fill || KNOWN_PROP_FILLS[p.key] || null,
       });
     });
+  }
+
+
+  function moneyShort(n) {
+    const x = Number(n);
+    if (!isFinite(x)) return "—";
+    const s = x.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+    return "$" + s;
+  }
+
+  function resolveFill(propOrKey) {
+    if (!propOrKey) return null;
+    if (typeof propOrKey === "string") {
+      return KNOWN_PROP_FILLS[propOrKey] || null;
+    }
+    return propOrKey.fill || KNOWN_PROP_FILLS[propOrKey.key] || null;
+  }
+
+  /** Overlay live-book positions onto known fills when a proxy/desk book is present. */
+  function mergePropFills(positions) {
+    const list = positions || [];
+    if (!list.length) return KNOWN_PROP_FILLS;
+    function apply(key, matcher) {
+      for (let i = 0; i < list.length; i++) {
+        const p = list[i] || {};
+        const t = String(p.ticker || "").toUpperCase();
+        if (!matcher(t)) continue;
+        const contracts = Math.abs(Number(p.position != null ? p.position : p.contractsFilled || 0));
+        if (!contracts) continue;
+        const cost = Number(p.marketExposure != null ? p.marketExposure : p.cost || 0);
+        KNOWN_PROP_FILLS[key] = {
+          contracts: contracts,
+          cost: cost,
+          payout: contracts,
+          tickerHint: t,
+          realizedPnl: p.realizedPnl,
+        };
+        break;
+      }
+    }
+    apply("brewers_win", function (t) { return t.indexOf("KXMLBGAME") >= 0 && /[-]MIL$/.test(t); });
+    apply("bauers_hr", function (t) { return t.indexOf("BAUERS") >= 0; });
+    apply("yelich_hr", function (t) { return t.indexOf("YELICH") >= 0; });
+    apply("ortiz_hr", function (t) { return t.indexOf("ORTIZ") >= 0; });
+    apply("chourio_h", function (t) { return t.indexOf("CHOURIO") >= 0; });
+    apply("contreras_rbi", function (t) { return t.indexOf("CONTRERAS") >= 0; });
+    apply("may_k", function (t) { return t.indexOf("KXMLBKS") >= 0 && t.indexOf("MAY") >= 0; });
+    TRACKED_PROPS.forEach(function (pp) {
+      if (KNOWN_PROP_FILLS[pp.key]) pp.fill = KNOWN_PROP_FILLS[pp.key];
+    });
+    return KNOWN_PROP_FILLS;
+  }
+
+  function formatFillHtml(fill, vibe) {
+    if (!fill || fill.cost == null) return "";
+    const stake = moneyShort(fill.cost);
+    const maxPay = moneyShort(fill.payout != null ? fill.payout : fill.contracts);
+    let right;
+    if (vibe === "hit") {
+      right = "settled " + maxPay;
+    } else if (vibe === "dead") {
+      right = "settled $0";
+    } else {
+      right = "to win " + maxPay;
+    }
+    return (
+      '<div class="prop-money"><span class="prop-stake">Bet ' +
+      stake +
+      '</span><span class="prop-payout">' +
+      right +
+      "</span></div>"
+    );
   }
 
   function escHtml(s) {
@@ -342,7 +433,12 @@
           : data.isLive
             ? "Live · scoreboard watch (not a Kalshi mid)"
             : "Pregame · waiting on first pitch") +
-        "</div></div>"
+        "</div>" +
+        formatFillHtml(
+          resolveFill("brewers_win"),
+          data.isFinal ? (data.winnerHint === "MIL" ? "hit" : "dead") : data.isLive ? "alive" : "pre"
+        ) +
+        "</div>"
     );
 
     props.forEach(function (p) {
@@ -383,7 +479,9 @@
           " IP · " +
           (g.bf || 0) +
           " BF";
-        badge = (g.so || 0) + " K";
+        badge = p.propHit
+          ? (p.line != null ? p.line + "+ ✓" : "K ✓")
+          : (g.so || 0) + " K";
       } else {
         statline = g.summary || "—";
         badge = "—";
@@ -418,6 +516,7 @@
             ? " · " + escHtml(o.estLabel)
             : "") +
           "</div>" +
+          formatFillHtml(resolveFill(p), vibe) +
           (vibe === "alive" || vibe === "pre"
             ? '<div class="prop-note">est from innings left × ~1 PA/inn · not a Kalshi mid</div>'
             : "") +
@@ -682,6 +781,7 @@
         propHit,
         current,
         game,
+        fill: pp.fill || KNOWN_PROP_FILLS[pp.key] || null,
       };
       base.opportunity = buildOpportunity(base, game, ctx);
       return base;
@@ -742,6 +842,8 @@
     parseGameTicker,
     renderPropsHtml,
     attachOpportunities,
+    mergePropFills,
+    KNOWN_PROP_FILLS,
     TRACKED_PROPS,
   };
 })(typeof window !== "undefined" ? window : globalThis);

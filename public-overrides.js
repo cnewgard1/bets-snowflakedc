@@ -63,6 +63,11 @@
         throw new Error("empty");
       }
       window.dispatchEvent(new CustomEvent("bets-live-book", { detail: data }));
+      try {
+        if (window.BetsGameFeed && typeof window.BetsGameFeed.mergePropFills === "function") {
+          window.BetsGameFeed.mergePropFills(data.positions || []);
+        }
+      } catch (eMerge) {}
       if (sub) {
         var n = (data.bets && data.bets.length) || 0;
         var c = (data.closed && data.closed.length) || 0;
