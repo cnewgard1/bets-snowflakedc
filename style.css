@@ -805,6 +805,12 @@ body {
 
 
 /* Live book / open bets */
+/* Keep DONE · ARCHIVE at the bottom of the phone stack (after LIVE GAME). */
+#liveBookCard { order: 1; }
+#gameFeedCard { order: 2; }
+#closedBookCard { order: 3; }
+.demo-note { order: 4; }
+
 .livebook-card {
   padding: 14px 16px 14px;
 }
