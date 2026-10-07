@@ -1087,6 +1087,74 @@
     };
   }
 
+
+  /**
+   * Watch-UI settled bets from known fills + MLB hit/miss (when terminal).
+   * Used when closed/settled book is unavailable (no keys on public host).
+   */
+  function buildWatchClosed(gameData) {
+    const data = gameData || {};
+    const meta = data.meta || parseGameTicker(data.ticker || "");
+    const dateKey = meta.dateIso || "2026-10-06";
+    const settledAt = dateKey + "T23:59:00-05:00";
+    const ctx = {
+      inning: data.inning,
+      inningState: data.inningState,
+      isFinal: !!data.isFinal,
+      isLive: !!data.isLive,
+    };
+    const out = [];
+
+    function pushItem(id, title, fill, hit, tickerHint) {
+      if (!fill || fill.cost == null) return;
+      const cost = Number(fill.cost) || 0;
+      const payout = Number(fill.payout != null ? fill.payout : fill.contracts) || 0;
+      const revenue = hit ? payout : 0;
+      const pnl = Math.round((revenue - cost) * 10000) / 10000;
+      out.push({
+        id: id,
+        ticker: fill.tickerHint || tickerHint || "",
+        title: title,
+        cost: Math.round(cost * 10000) / 10000,
+        revenue: Math.round(revenue * 10000) / 10000,
+        pnl: pnl,
+        result: pnl > 0 ? "win" : pnl < 0 ? "loss" : "flat",
+        settledTime: settledAt,
+        dateKey: dateKey,
+        source: "watch",
+      });
+    }
+
+    // Game winner (only when final)
+    if (data.isFinal) {
+      const hitWin = String(data.winnerHint || "").toUpperCase() === "MIL";
+      pushItem(
+        "watch:" + dateKey + ":brewers_win",
+        "Brewers win",
+        resolveFill("brewers_win"),
+        hitWin,
+        "KXMLBGAME"
+      );
+    }
+
+    const props = attachOpportunities(data.props || [], ctx);
+    props.forEach(function (p) {
+      const opp = p.opportunity || {};
+      const vibe = opp.vibe;
+      if (vibe !== "hit" && vibe !== "dead") return;
+      const fill = resolveFill(p);
+      pushItem(
+        "watch:" + dateKey + ":" + (p.key || p.label || "prop"),
+        p.label || p.player || p.key || "Prop",
+        fill,
+        vibe === "hit",
+        (fill && fill.tickerHint) || ""
+      );
+    });
+
+    return out;
+  }
+
   global.BetsGameFeed = {
     buildGameFeed,
     parseGameTicker,
@@ -1097,6 +1165,7 @@
     estimateSuccessPct,
     estimateWinSuccessPct,
     mergePropFills,
+    buildWatchClosed,
     KNOWN_PROP_FILLS,
     TRACKED_PROPS,
   };

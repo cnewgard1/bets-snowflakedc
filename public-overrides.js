@@ -64,6 +64,11 @@
       }
       window.dispatchEvent(new CustomEvent("bets-live-book", { detail: data }));
       try {
+        if (window.BetsDoneArchive && data.closed && data.closed.length) {
+          window.BetsDoneArchive.ingestBook(data.closed);
+        }
+      } catch (eArch) {}
+      try {
         if (window.BetsGameFeed && typeof window.BetsGameFeed.mergePropFills === "function") {
           window.BetsGameFeed.mergePropFills(data.positions || []);
         }
@@ -91,10 +96,14 @@
           ? "Read proxy failed. Book snapshot needs a working ?bookProxy= tunnel (GET /api/live-book only). No keys on this host."
           : "OPEN book is empty on this public watch UI — Kalshi keys are never deployed here. Optional: paste a read-only tunnel (?bookProxy=&bookToken=)."
       );
-      empty(
-        closedList,
-        "Closed / settled book needs a read-only desk snapshot or bookProxy. Trading stays on ~/Grok/kalshi-desk only."
-      );
+      if (window.BetsDoneArchive) {
+        window.BetsDoneArchive.render();
+      } else {
+        empty(
+          closedList,
+          "Closed archive fills from tonight's known fills + MLB hit/miss when settled (or bookProxy)."
+        );
+      }
       if (chip) {
         chip.textContent = "WATCH";
         chip.classList.remove("live");
@@ -206,6 +215,11 @@
           ? data.status || "Live"
           : data.status || "Scheduled";
       window.__deskGameFinished = !!data.isFinal;
+      try {
+        if (window.BetsDoneArchive && typeof window.BetsDoneArchive.ingestWatch === "function") {
+          window.BetsDoneArchive.ingestWatch(data);
+        }
+      } catch (eArch) {}
       console.log("[Game/watch]", data.status, (away.runs || 0) + "-" + (home.runs || 0));
     } catch (e) {
       if (el.sub) el.sub.textContent = "Game feed offline — MLB/ESPN retrying…";

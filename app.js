@@ -166,37 +166,304 @@
     );
   }
 
-  function renderClosed(c) {
+  const ARCHIVE_KEY = "bets_done_archive_v1";
+  const ARCHIVE_OPEN_KEY = "bets_done_archive_open_v1";
+
+  function dateKeyFromSettled(ts, fallback) {
+    if (fallback) return fallback;
+    if (!ts) {
+      return new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+    }
+    const d = new Date(ts);
+    if (Number.isNaN(d.getTime())) {
+      const m = String(ts).match(/(\d{4}-\d{2}-\d{2})/);
+      return m ? m[1] : new Date().toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+    }
+    return d.toLocaleDateString("en-CA", { timeZone: "America/Chicago" });
+  }
+
+  function formatDateLabel(dateKey) {
+    const parts = String(dateKey || "").split("-");
+    if (parts.length !== 3) return dateKey || "—";
+    const d = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 17, 0, 0));
+    return d.toLocaleDateString("en-US", {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+      timeZone: "America/Chicago",
+    });
+  }
+
+  function signedMoney(n) {
+    const x = Number(n) || 0;
+    const abs = money(Math.abs(x)).replace("$", "");
+    if (x > 0) return "+$" + abs;
+    if (x < 0) return "−$" + abs;
+    return "$" + abs;
+  }
+
+  function loadArchiveStore() {
+    try {
+      const raw = localStorage.getItem(ARCHIVE_KEY);
+      if (!raw) return { byId: {} };
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" && parsed.byId ? parsed : { byId: {} };
+    } catch (e) {
+      return { byId: {} };
+    }
+  }
+
+  function saveArchiveStore(store) {
+    try {
+      localStorage.setItem(ARCHIVE_KEY, JSON.stringify(store));
+    } catch (e) {}
+  }
+
+  function loadOpenDates() {
+    try {
+      const raw = localStorage.getItem(ARCHIVE_OPEN_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === "object" ? parsed : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveOpenDates(map) {
+    try {
+      localStorage.setItem(ARCHIVE_OPEN_KEY, JSON.stringify(map || {}));
+    } catch (e) {}
+  }
+
+  function normalizeClosedItem(c, source) {
+    const dateKey = c.dateKey || dateKeyFromSettled(c.settledTime, null);
+    const id =
+      c.id ||
+      (source || c.source || "book") +
+        ":" +
+        dateKey +
+        ":" +
+        String(c.ticker || c.title || Math.random());
     const pnl = Number(c.pnl || 0);
-    const cls = pnl >= 0 ? "up" : "down";
-    const result = c.result || (pnl >= 0 ? "win" : "loss");
+    return {
+      id: id,
+      ticker: c.ticker || "",
+      title: c.title || c.ticker || "Settlement",
+      cost: Number(c.cost || 0),
+      revenue: Number(c.revenue != null ? c.revenue : 0),
+      pnl: pnl,
+      result: c.result || (pnl > 0 ? "win" : pnl < 0 ? "loss" : "flat"),
+      settledTime: c.settledTime || dateKey,
+      dateKey: dateKey,
+      source: source || c.source || "book",
+    };
+  }
+
+  /** Merge closed items into local archive. Book overwrites watch for same logical bet. */
+  function mergeClosedIntoArchive(items, source) {
+    const list = items || [];
+    if (!list.length && source !== "book") return loadArchiveStore();
+    const store = loadArchiveStore();
+    list.forEach(function (raw) {
+      const item = normalizeClosedItem(raw, source);
+      const prev = store.byId[item.id];
+      if (prev && prev.source === "book" && item.source === "watch") return;
+      // Prefer book over watch even if ids differ: match ticker+dateKey
+      if (item.source === "book" && item.ticker) {
+        Object.keys(store.byId).forEach(function (k) {
+          const p = store.byId[k];
+          if (
+            p &&
+            p.source === "watch" &&
+            p.dateKey === item.dateKey &&
+            String(p.ticker || "").toUpperCase().indexOf(String(item.ticker).toUpperCase().slice(0, 8)) >= 0
+          ) {
+            delete store.byId[k];
+          }
+        });
+      }
+      store.byId[item.id] = item;
+    });
+    saveArchiveStore(store);
+    return store;
+  }
+
+  function archiveItemsGrouped(store) {
+    const groups = {};
+    Object.keys(store.byId || {}).forEach(function (id) {
+      const item = store.byId[id];
+      if (!item) return;
+      const dk = item.dateKey || dateKeyFromSettled(item.settledTime);
+      if (!groups[dk]) groups[dk] = [];
+      groups[dk].push(item);
+    });
+    Object.keys(groups).forEach(function (dk) {
+      groups[dk].sort(function (a, b) {
+        return Math.abs(Number(b.pnl || 0)) - Math.abs(Number(a.pnl || 0));
+      });
+    });
+    return groups;
+  }
+
+  function renderArchiveRow(c) {
+    const pnl = Number(c.pnl || 0);
+    const cls = pnl > 0 ? "up" : pnl < 0 ? "down" : "";
+    const result = c.result || (pnl > 0 ? "win" : pnl < 0 ? "loss" : "flat");
     return (
-      '<article class="bet-card">' +
-      '<div class="bet-top">' +
-      "<div>" +
-      '<div class="bet-title">' + esc(c.title || c.ticker) + "</div>" +
-      '<div class="bet-ticker">' + esc(c.ticker || "") + "</div>" +
+      '<article class="archive-row">' +
+      '<div class="archive-row-top">' +
+      '<div class="archive-title">' +
+      esc(c.title || c.ticker) +
       "</div>" +
-      '<span class="bet-badge ' + esc(result) + '">' + esc(result) + "</span>" +
-      "</div>" +
-      '<div class="bet-grid">' +
-      '<div class="bet-cell"><span class="bet-cell-label">Cost</span><span class="bet-cell-val">' +
-      money(c.cost) +
-      "</span></div>" +
-      '<div class="bet-cell"><span class="bet-cell-label">Revenue</span><span class="bet-cell-val">' +
-      money(c.revenue) +
-      "</span></div>" +
-      '<div class="bet-cell"><span class="bet-cell-label">P&amp;L</span><span class="bet-cell-val ' +
-      cls +
+      '<span class="bet-badge ' +
+      esc(result) +
       '">' +
-      money(pnl) +
+      esc(result) +
       "</span></div>" +
-      "</div>" +
-      '<div class="bet-foot"><span>' +
-      esc(c.settledTime || "") +
-      "</span><span>closed</span></div>" +
-      "</article>"
+      (c.ticker
+        ? '<div class="archive-ticker">' + esc(c.ticker) + "</div>"
+        : "") +
+      '<div class="archive-cols">' +
+      '<span class="archive-bet"><em>Bet</em> ' +
+      money(c.cost) +
+      "</span>" +
+      '<span class="archive-pnl ' +
+      cls +
+      '"><em>Win/Loss</em> ' +
+      signedMoney(pnl) +
+      "</span></div></article>"
     );
+  }
+
+  function renderClosedArchive(store) {
+    const groups = archiveItemsGrouped(store || loadArchiveStore());
+    const dates = Object.keys(groups).sort().reverse();
+    if (!dates.length) {
+      renderEmpty(lb.closedList, "No settled bets yet.");
+      if (lb.realized) lb.realized.textContent = money(0);
+      if (lb.closedCount) lb.closedCount.textContent = "0";
+      if (lb.closedSub) lb.closedSub.textContent = "Archive empty · settled wins / losses";
+      return { count: 0, realized: 0 };
+    }
+
+    let realized = 0;
+    let count = 0;
+    dates.forEach(function (dk) {
+      groups[dk].forEach(function (c) {
+        realized += Number(c.pnl || 0);
+        count += 1;
+      });
+    });
+    realized = Math.round(realized * 10000) / 10000;
+
+    const openMap = loadOpenDates();
+    const newest = dates[0];
+    const html = dates
+      .map(function (dk) {
+        const items = groups[dk];
+        let dayPnl = 0;
+        let dayStake = 0;
+        items.forEach(function (c) {
+          dayPnl += Number(c.pnl || 0);
+          dayStake += Number(c.cost || 0);
+        });
+        dayPnl = Math.round(dayPnl * 10000) / 10000;
+        const dayCls = dayPnl > 0 ? "up" : dayPnl < 0 ? "down" : "";
+        let isOpen;
+        if (openMap && Object.prototype.hasOwnProperty.call(openMap, dk)) {
+          isOpen = !!openMap[dk];
+        } else {
+          isOpen = dk === newest; // newest day expanded; older archived collapsed
+        }
+        return (
+          '<details class="archive-day"' +
+          (isOpen ? " open" : "") +
+          ' data-date="' +
+          esc(dk) +
+          '">' +
+          '<summary class="archive-summary">' +
+          '<div class="archive-summary-text">' +
+          '<span class="archive-date">' +
+          esc(formatDateLabel(dk)) +
+          "</span>" +
+          '<span class="archive-meta">' +
+          items.length +
+          " bet" +
+          (items.length === 1 ? "" : "s") +
+          " · stake " +
+          money(dayStake) +
+          "</span></div>" +
+          '<span class="archive-net ' +
+          dayCls +
+          '">' +
+          signedMoney(dayPnl) +
+          "</span></summary>" +
+          '<div class="archive-items">' +
+          items.map(renderArchiveRow).join("") +
+          "</div></details>"
+        );
+      })
+      .join("");
+
+    if (lb.closedList) {
+      lb.closedList.innerHTML = '<div class="archive-accordion">' + html + "</div>";
+      if (!lb.closedList._archiveToggleBound) {
+        lb.closedList._archiveToggleBound = true;
+        lb.closedList.addEventListener("toggle", function (ev) {
+          const det = ev.target;
+          if (!det || !det.classList || !det.classList.contains("archive-day")) return;
+          const map = loadOpenDates() || {};
+          map[det.getAttribute("data-date")] = det.open;
+          saveOpenDates(map);
+        }, true);
+      }
+    }
+    if (lb.realized) {
+      lb.realized.textContent = money(realized);
+      lb.realized.classList.toggle("up", realized > 0);
+      lb.realized.classList.toggle("down", realized < 0);
+    }
+    if (lb.closedCount) lb.closedCount.textContent = String(count);
+    if (lb.closedSub) {
+      lb.closedSub.textContent =
+        count +
+        " settled · " +
+        dates.length +
+        " day" +
+        (dates.length === 1 ? "" : "s") +
+        " · realized " +
+        money(realized);
+    }
+    return { count: count, realized: realized };
+  }
+
+  function ingestClosedFromBook(closed) {
+    const list = closed || [];
+    if (list.length) mergeClosedIntoArchive(list, "book");
+    return renderClosedArchive(loadArchiveStore());
+  }
+
+  function ingestClosedFromWatch(gameData) {
+    if (!window.BetsGameFeed || typeof window.BetsGameFeed.buildWatchClosed !== "function") {
+      return renderClosedArchive(loadArchiveStore());
+    }
+    const items = window.BetsGameFeed.buildWatchClosed(gameData);
+    if (items && items.length) mergeClosedIntoArchive(items, "watch");
+    return renderClosedArchive(loadArchiveStore());
+  }
+
+  // Prefer book closed when available; watch fills archive when book is empty/offline.
+  window.BetsDoneArchive = {
+    ingestBook: ingestClosedFromBook,
+    ingestWatch: ingestClosedFromWatch,
+    render: function () {
+      return renderClosedArchive(loadArchiveStore());
+    },
+  };
+
+  function renderClosed(c) {
+    return renderArchiveRow(normalizeClosedItem(c, c.source || "book"));
   }
 
   function applyPortfolioFromLive(summary) {
@@ -337,16 +604,14 @@
       lb.list.innerHTML = posCards.concat(bets.map(renderOpenBet)).join("");
     }
 
-    if (lb.realized) lb.realized.textContent = money(realized);
-    if (lb.closedCount) lb.closedCount.textContent = String(closed.length);
-    if (lb.closedSub) {
-      lb.closedSub.textContent =
-        closed.length + " settled · realized " + money(realized);
-    }
-    if (!closed.length) {
-      renderEmpty(lb.closedList, "No settled wins/losses yet.");
-    } else if (lb.closedList) {
-      lb.closedList.innerHTML = closed.map(renderClosed).join("");
+    // Closed accordion archive: book settlements when present; else keep watch archive.
+    if (closed.length) {
+      ingestClosedFromBook(closed);
+    } else if (!window.__deskUseLivePortfolio) {
+      renderClosedArchive(loadArchiveStore());
+    } else {
+      // Live book OK but nothing settled yet — still show any archived watch days
+      renderClosedArchive(loadArchiveStore());
     }
 
     applyPortfolioFromLive(summary);
@@ -416,7 +681,18 @@
         lb.list,
         "Live Kalshi book stays on your local desk (keys never on this host)."
       );
-      renderEmpty(lb.closedList, "Closed book available when the local desk server is running.");
+      if (window.BetsDoneArchive) {
+        const arch = window.BetsDoneArchive.render();
+        if (lb.closedSub) {
+          const n = arch && arch.count != null ? arch.count : 0;
+          lb.closedSub.textContent =
+            n
+              ? n + " archived · watch fills (book offline)"
+              : "Archive waits on settled fills · book offline";
+        }
+      } else {
+        renderEmpty(lb.closedList, "Closed book available when the local desk server is running.");
+      }
       if (lb.chip) {
         lb.chip.textContent = "OFFLINE";
         lb.chip.classList.remove("live");
@@ -478,6 +754,17 @@
     _renderBook(data);
     maybeStopOrResumeAutoRefresh();
   };
+
+
+  window.addEventListener("bets-live-book", function (ev) {
+    try {
+      const data = ev && ev.detail;
+      if (!data) return;
+      window.__deskUseLivePortfolio = true;
+      if (data.closed && data.closed.length) ingestClosedFromBook(data.closed);
+      renderBook(data);
+    } catch (e) {}
+  });
 
   if (lb.btn) lb.btn.addEventListener("click", function () { refreshBook(); });
   refreshBook();
@@ -664,6 +951,12 @@
       window.__deskGameStatus = data.status || "Scheduled";
     }
     window.__deskGameFinished = !!data.isFinal;
+    try {
+      if (window.BetsDoneArchive && typeof window.BetsDoneArchive.ingestWatch === "function") {
+        // Prefer book when live; still merge terminal watch fills (book overwrites)
+        window.BetsDoneArchive.ingestWatch(data);
+      }
+    } catch (eArch) {}
     if (typeof maybeStopOrResumeGameRefresh === "function") {
       maybeStopOrResumeGameRefresh();
     }

@@ -1548,3 +1548,139 @@ body {
 
 /* Public auth gate */
 html.auth-pending:not(.authed) body > .page { visibility: hidden; }
+
+/* Done-bets archive accordion (grouped by date) */
+.archive-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.archive-day {
+  background: rgba(255,255,255,0.42);
+  border: 1px solid rgba(255,255,255,0.7);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+.archive-summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  user-select: none;
+}
+
+.archive-summary::-webkit-details-marker { display: none; }
+
+.archive-summary-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.archive-summary::after {
+  content: "▸";
+  flex-shrink: 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  transition: transform 0.15s ease;
+}
+
+.archive-day[open] > .archive-summary::after {
+  transform: rotate(90deg);
+}
+
+.archive-date {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text);
+  letter-spacing: -0.01em;
+}
+
+.archive-meta {
+  font-size: 0.58rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.archive-net {
+  flex-shrink: 0;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.archive-net.up { color: #16a34a; }
+.archive-net.down { color: #dc2626; }
+
+.archive-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 8px 10px;
+}
+
+.archive-row {
+  background: rgba(255,255,255,0.55);
+  border-radius: 11px;
+  padding: 8px 10px;
+  border: 1px solid rgba(255,255,255,0.65);
+}
+
+.archive-row-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.archive-title {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.25;
+}
+
+.archive-ticker {
+  font-family: var(--mono);
+  font-size: 0.52rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-top: 2px;
+  word-break: break-all;
+}
+
+.archive-cols {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 7px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.archive-cols em {
+  font-style: normal;
+  font-family: inherit;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 4px;
+}
+
+.archive-bet { color: var(--text); }
+.archive-pnl.up { color: #16a34a; }
+.archive-pnl.down { color: #dc2626; }
+
+.lb-stat-val.up { color: #16a34a; }
+.lb-stat-val.down { color: #dc2626; }
+
