@@ -29,7 +29,7 @@
         </div>
         <div class="status-row">
           <span class="status-dot" aria-hidden="true"></span>
-          <span class="status-text">KALSHI · SHARD 3</span>
+          <span class="status-text">WATCH · NO TRADE</span>
           <span class="mode-chip" id="modeChip">…</span>
         </div>
       </header>
@@ -45,7 +45,7 @@
         </div>
         <div class="pnl-row">
           <span class="pnl-up" id="pnlAbs">Realized +$0.00</span>
-          <span class="pnl-mult" id="pnlMult">Waiting for live book…</span>
+          <span class="pnl-mult" id="pnlMult">Watch-only · book needs read proxy or stays empty</span>
         </div>
         <div class="capital-split" id="capitalSplit">
           <div class="cap-bar">
@@ -92,7 +92,7 @@
         </div>
         <div class="livebook-meta" id="liveBookMeta">Shard 3 · cash —</div>
         <div class="livebook-list" id="liveBookList">
-          <div class="livebook-empty">Public host has no Kalshi keys — OPEN book stays on local desk (or bookProxy).</div>
+          <div class="livebook-empty">Watch-only: OPEN book empty here (no Kalshi keys on public host). Optional read-only ?bookProxy=.</div>
         </div>
       </section>
 
@@ -114,7 +114,7 @@
           </div>
         </div>
         <div class="livebook-list" id="closedBookList">
-          <div class="livebook-empty">Settled book needs local desk / read proxy.</div>
+          <div class="livebook-empty">Watch-only: closed book needs read-only snapshot / bookProxy.</div>
         </div>
       </section>
 
@@ -153,12 +153,13 @@
         </div>
       </section>
 
-      <p class="demo-note" id="demoNote">Public view · game feed via MLB/ESPN · Kalshi book local-only (keys never here) · hard-refresh Cmd-Shift-R</p>
+      <p class="demo-note" id="demoNote">Watch-only · MLB/ESPN game · no order placement · keys never on this host · Cmd-Shift-R</p>
     </div>
   </div>
   <script src="auth.js"></script>
   <script src="game-feed.js"></script>
   <script src="kalshi-client.js"></script>
   <script src="app.js"></script>
+  <script src="public-overrides.js"></script>
 </body>
 </html>
