@@ -806,10 +806,11 @@ body {
 
 /* Live book / open bets */
 /* Keep DONE · ARCHIVE at the bottom of the phone stack (after LIVE GAME). */
-#liveBookCard { order: 1; }
-#gameFeedCard { order: 2; }
-#closedBookCard { order: 3; }
-.demo-note { order: 4; }
+#crypto15Card { order: 1; }
+#liveBookCard { order: 2; }
+#gameFeedCard { order: 3; }
+#closedBookCard { order: 4; }
+.demo-note { order: 5; }
 
 .livebook-card {
   padding: 14px 16px 14px;
@@ -1690,3 +1691,108 @@ html.auth-pending:not(.authed) body > .page { visibility: hidden; }
 .lb-stat-val.up { color: #16a34a; }
 .lb-stat-val.down { color: #dc2626; }
 
+
+
+/* LIVE 15M crypto board */
+.crypto15-card {
+  padding: 14px 16px 12px;
+}
+
+.c15-legend {
+  display: none;
+}
+
+.crypto15-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.c15-row {
+  display: grid;
+  grid-template-columns: 64px 1fr 1fr;
+  gap: 4px 8px;
+  padding: 8px 10px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.55);
+  border: 1px solid rgba(255,255,255,0.7);
+  box-shadow: 0 1px 0 rgba(255,255,255,0.5) inset;
+}
+
+.c15-row.urgent {
+  border-color: rgba(251, 146, 60, 0.55);
+  background: rgba(255, 247, 237, 0.85);
+}
+
+.c15-asset {
+  grid-row: span 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
+.c15-sym {
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.c15-cd {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #0f766e;
+}
+
+.c15-cd.hot {
+  color: #c2410c;
+}
+
+.c15-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.c15-metric em {
+  font-style: normal;
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.c15-metric > span {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.c15-ba {
+  font-size: 0.55rem !important;
+  font-weight: 600 !important;
+  color: var(--muted) !important;
+}
+
+.c15-metric.gap-up > span,
+.c15-metric.edge-up > span { color: #15803d; }
+
+.c15-metric.gap-down > span,
+.c15-metric.edge-down > span { color: #dc2626; }
+
+@media (min-width: 420px) {
+  .c15-row {
+    grid-template-columns: 70px repeat(5, minmax(0, 1fr));
+    align-items: center;
+  }
+  .c15-asset { grid-row: auto; }
+}

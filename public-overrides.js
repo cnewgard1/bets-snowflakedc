@@ -110,7 +110,7 @@
       }
       if (demoNote) {
         demoNote.textContent =
-          "Watch-only · MLB/ESPN game on · no order placement · Kalshi keys never on Lovable/GitHub";
+          "Watch-only · LIVE 15M crypto + MLB/ESPN · no order placement · Kalshi keys never on Lovable/GitHub";
       }
     }
   }

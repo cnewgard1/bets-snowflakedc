@@ -76,6 +76,23 @@
         </div>
       </section>
 
+
+      <section class="card crypto15-card" id="crypto15Card">
+        <div class="livebook-header">
+          <div>
+            <div class="section-label">LIVE 15M · CRYPTO</div>
+            <div class="livebook-sub" id="crypto15Sub">Loading liquid *15M…</div>
+          </div>
+          <button type="button" class="livebook-refresh" id="btnRefreshCrypto15" title="Refresh 15m">↻</button>
+        </div>
+        <div class="c15-legend" aria-hidden="true">
+          <span>Spot</span><span>Floor</span><span>Gap</span><span>Mid · bid/ask</span><span>Edge</span><span>CD</span>
+        </div>
+        <div class="crypto15-list" id="crypto15List">
+          <div class="livebook-empty">Connecting to *15M board…</div>
+        </div>
+      </section>
+
       <section class="card livebook-card" id="liveBookCard">
         <div class="livebook-header">
           <div>
@@ -168,11 +185,12 @@
         </div>
       </section>
 
-      <p class="demo-note" id="demoNote">Watch-only · MLB/ESPN game · no order placement · keys never on this host · Cmd-Shift-R</p>
+      <p class="demo-note" id="demoNote">Watch-only · LIVE 15M crypto + MLB/ESPN · no orders · keys never on this host · Cmd-Shift-R</p>
     </div>
   </div>
   <script src="auth.js"></script>
   <script src="game-feed.js"></script>
+  <script src="crypto15m.js"></script>
   <script src="kalshi-client.js"></script>
   <script src="app.js"></script>
   <script src="public-overrides.js"></script>
