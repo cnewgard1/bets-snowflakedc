@@ -25,9 +25,17 @@
   --radius: 20px;
   --mono: "SF Mono", "Cascadia Code", "Fira Code", ui-monospace, Menlo, Consolas, monospace;
   --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Bumped base (was browser 16px). A−/A+ multiplies via --text-scale. */
+  --text-base: 17.5px;
+  --text-scale: 1;
 }
 
-html, body { min-height: 100%; }
+html {
+  font-size: calc(var(--text-base) * var(--text-scale));
+  min-height: 100%;
+}
+
+body { min-height: 100%; }
 
 body {
   font-family: var(--sans);
@@ -58,6 +66,44 @@ body {
 .header {
   text-align: center;
   padding: 8px 0 2px;
+  position: relative;
+}
+
+.text-scale {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  display: flex;
+  gap: 4px;
+  z-index: 2;
+}
+
+.text-scale-btn {
+  min-width: 30px;
+  height: 28px;
+  padding: 0 7px;
+  border: 1px solid rgba(255,255,255,0.85);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 2px 8px rgba(100, 80, 120, 0.08);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 12px; /* px so control chrome stays stable while UI rem scales */
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s, opacity 0.15s;
+}
+
+.text-scale-btn:hover { background: rgba(255,255,255,0.95); transform: scale(1.05); }
+.text-scale-btn:active { transform: scale(0.96); }
+.text-scale-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  transform: none;
 }
 
 .brand {
@@ -74,7 +120,7 @@ body {
 }
 
 .header h1 {
-  font-size: 1.35rem;
+  font-size: 1.42rem;
   font-weight: 700;
   letter-spacing: -0.02em;
 }

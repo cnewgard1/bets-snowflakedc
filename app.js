@@ -7,6 +7,56 @@
   window.__deskUseLivePortfolio = false;
 })();
 
+/* TEXT_SCALE — A−/A+ UI type scale, persisted in localStorage */
+(function bootTextScale() {
+  "use strict";
+
+  var KEY = "bets_text_scale";
+  var MIN = 0.85;
+  var MAX = 1.4;
+  var STEP = 0.075;
+  var DEFAULT = 1; // pairs with --text-base 17.5px (~ +9% vs 16px)
+
+  function clamp(n) {
+    return Math.min(MAX, Math.max(MIN, Math.round(n * 1000) / 1000));
+  }
+
+  function read() {
+    try {
+      var raw = localStorage.getItem(KEY);
+      if (raw == null || raw === "") return DEFAULT;
+      var n = Number(raw);
+      return Number.isFinite(n) ? clamp(n) : DEFAULT;
+    } catch (e) {
+      return DEFAULT;
+    }
+  }
+
+  function apply(scale) {
+    var n = clamp(scale);
+    document.documentElement.style.setProperty("--text-scale", String(n));
+    try {
+      localStorage.setItem(KEY, String(n));
+    } catch (e) {}
+    var minus = document.getElementById("btnTextMinus");
+    var plus = document.getElementById("btnTextPlus");
+    if (minus) minus.disabled = n <= MIN + 0.0001;
+    if (plus) plus.disabled = n >= MAX - 0.0001;
+    return n;
+  }
+
+  var current = apply(read());
+
+  function bump(dir) {
+    current = apply(current + dir * STEP);
+  }
+
+  var minus = document.getElementById("btnTextMinus");
+  var plus = document.getElementById("btnTextPlus");
+  if (minus) minus.addEventListener("click", function () { bump(-1); });
+  if (plus) plus.addEventListener("click", function () { bump(1); });
+})();
+
 /* KALSHI_LIVE_BOOK — open (resting/filled) + closed (settled) + real equity */
 (function bootLiveBook() {
   "use strict";

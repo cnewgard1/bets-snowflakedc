@@ -5,11 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
   <title>Grok Bot · Bets · snowflakedc</title>
   <link rel="stylesheet" href="style.css" />
+  <script>
+    (function () {
+      try {
+        var s = localStorage.getItem("bets_text_scale");
+        var n = s == null ? 1 : Number(s);
+        if (!Number.isFinite(n)) n = 1;
+        n = Math.min(1.4, Math.max(0.85, n));
+        document.documentElement.style.setProperty("--text-scale", String(n));
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <div class="page">
     <div class="phone">
       <header class="header">
+        <div class="text-scale" role="group" aria-label="Text size">
+          <button type="button" class="text-scale-btn" id="btnTextMinus" title="Smaller text" aria-label="Decrease text size">A−</button>
+          <button type="button" class="text-scale-btn" id="btnTextPlus" title="Larger text" aria-label="Increase text size">A+</button>
+        </div>
         <div class="brand">
           <svg class="bot-icon" viewBox="0 0 40 40" aria-hidden="true">
             <defs>
