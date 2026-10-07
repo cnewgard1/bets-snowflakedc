@@ -188,6 +188,62 @@
     return Math.min(startLeft, Math.max(gameIPLeft, 0));
   }
 
+  // Progressive heat: cool alive → warm → hot → critical as remaining
+  // ABs / IP / BF / innings dwindle or late game with no progress.
+  // Terminal vibes stay hit (green) / dead (final miss).
+  function pickDwindleVibe(opts) {
+    const kind = opts.kind;
+    const est = opts.estRemaining != null ? Number(opts.estRemaining) : 0;
+    const progressPct = opts.progressPct != null ? Number(opts.progressPct) : 0;
+    const current = opts.current != null ? Number(opts.current) : 0;
+    const line = opts.line;
+    const need = line != null ? Math.max(0, Number(line) - current) : 1;
+    const started = !!opts.started;
+    const isLive = !!opts.isLive;
+
+    if (!isLive && !started) return "pre";
+
+    // Scarcity 0 (plenty) → 4 (almost out) from remaining opportunity units.
+    let scarcity = 0;
+    if (kind === "ks") {
+      // estRemaining ≈ batters faced left
+      if (est >= 14) scarcity = 0;
+      else if (est >= 9) scarcity = 1;
+      else if (est >= 5) scarcity = 2;
+      else if (est >= 2.5) scarcity = 3;
+      else scarcity = 4;
+      // Still need multiple Ks with thin BF left
+      if (need >= 2 && est < need * 5) scarcity = Math.min(4, scarcity + 1);
+      if (need >= 3 && est < need * 4) scarcity = Math.min(4, scarcity + 1);
+    } else {
+      // Batter: estRemaining ≈ PA / AB left
+      if (est >= 3.5) scarcity = 0;
+      else if (est >= 2.5) scarcity = 1;
+      else if (est >= 1.5) scarcity = 2;
+      else if (est >= 0.75) scarcity = 3;
+      else scarcity = 4;
+    }
+
+    // Late game + still short of the line → push warmer/redder
+    if (need > 0) {
+      if (progressPct >= 55) scarcity = Math.min(4, scarcity + 1);
+      if (progressPct >= 75) scarcity = Math.min(4, scarcity + 1);
+      if (progressPct >= 90) scarcity = Math.min(4, scarcity + 1);
+    }
+
+    const map = ["alive", "alive", "warm", "hot", "critical"];
+    return map[scarcity] || "alive";
+  }
+
+  function dwindleVibeLabel(vibe, progressPct, current, unitLeft, unit) {
+    const left = "~" + unitLeft + " " + unit + " left";
+    if (vibe === "warm") return "Warming · " + left;
+    if (vibe === "hot") return "Getting hot · " + left;
+    if (vibe === "critical") return "On the ropes · " + left;
+    if (vibe === "alive") return progressPct + "% through · " + left;
+    return progressPct + "% · " + left;
+  }
+
   function buildOpportunity(prop, game, ctx) {
     const kind = prop.kind;
     const line = prop.line;
@@ -234,14 +290,25 @@
         100,
         Math.round((thrown / EXPECTED_IP_START) * 100)
       );
-      const vibe = ctx.isLive || thrown > 0 ? "alive" : "pre";
+      const started = ctx.isLive || thrown > 0;
+      const vibe = pickDwindleVibe({
+        kind: "ks",
+        estRemaining: bfLeft,
+        progressPct,
+        current,
+        line,
+        isLive: ctx.isLive,
+        started,
+      });
+      const ipLabel = Math.round(ipLeft * 10) / 10;
       return {
         current,
         estRemaining: bfLeft,
-        estLabel: "est ~" + (Math.round(ipLeft * 10) / 10) + " IP / ~" + Math.round(bfLeft) + " BF",
+        estLabel: "est ~" + ipLabel + " IP / ~" + Math.round(bfLeft) + " BF",
         progressPct,
         vibe,
-        vibeLabel: progressPct + "% start · " + current + " K",
+        vibeLabel: dwindleVibeLabel(vibe, progressPct, current, Math.round(bfLeft), "BF") +
+          " · " + current + " K",
         detail: (game.ip || "0") + " IP · " + (game.bf || 0) + " BF",
       };
     }
@@ -252,18 +319,34 @@
     const estPA = Math.round(halves * PA_PER_TEAM_INNING * 10) / 10;
     const ab = game.ab || 0;
     const pa = game.pa != null ? game.pa : ab + (game.bb || 0);
-    const progressPct = Math.min(100, Math.round((pa / EXPECTED_PA_GAME) * 100));
-    const vibe = ctx.isLive || ab > 0 ? "alive" : "pre";
+    // Blend PA-used with innings-used so late game heats even if PA count is low
+    const innProgress = Math.min(
+      100,
+      Math.round(((9 - halves) / 9) * 100)
+    );
+    const paProgress = Math.min(100, Math.round((pa / EXPECTED_PA_GAME) * 100));
+    const progressPct = Math.max(paProgress, innProgress);
+    const started = ctx.isLive || ab > 0 || pa > 0;
+    const vibe = pickDwindleVibe({
+      kind: kind,
+      estRemaining: estPA,
+      progressPct,
+      current,
+      line,
+      isLive: ctx.isLive,
+      started,
+    });
     let unit = "AB";
     if (kind === "hits") unit = "AB";
     if (kind === "rbi") unit = "AB";
+    if (kind === "hr") unit = "AB";
     return {
       current,
       estRemaining: estPA,
       estLabel: "est ~" + estPA + " " + unit + " left",
       progressPct,
       vibe,
-      vibeLabel: progressPct + "% through · ~" + estPA + " " + unit + " left",
+      vibeLabel: dwindleVibeLabel(vibe, progressPct, current, estPA, unit),
       detail: (game.summary || ab + " AB") + (kind === "hr" ? " · " + (game.hr || 0) + " HR" : ""),
     };
   }
@@ -391,19 +474,50 @@
 
     let winnerBadge = "OPEN";
     let winnerCls = "prop-badge";
+    let winnerVibe = "pre";
+    let winnerPct = 8;
+    let winnerLabel = "Pregame · waiting on first pitch";
+    const milRuns = away.runs != null ? Number(away.runs) : 0;
+    const oppRuns = home.runs != null ? Number(home.runs) : 0;
+    const lead = milRuns - oppRuns;
+    const innN = data.inning != null ? Number(data.inning) || 1 : 1;
     if (data.isFinal && data.winnerHint === "MIL") {
       winnerBadge = "MIL WINS";
       winnerCls = "prop-badge hit";
+      winnerVibe = "hit";
+      winnerPct = 100;
+      winnerLabel = "Final · Brewers cash";
     } else if (data.isFinal && data.winnerHint && data.winnerHint !== "MIL") {
       winnerBadge = data.winnerHint + " WINS";
       winnerCls = "prop-badge dead";
+      winnerVibe = "dead";
+      winnerPct = 100;
+      winnerLabel = "Final · " + escHtml(data.winnerHint || "?");
     } else if (data.isLive) {
       winnerBadge = "LIVE";
-      winnerCls = "prop-badge alive";
+      // Innings clock for game prop + score margin heat
+      winnerPct = Math.min(100, Math.round(((innN - 1) / 9) * 100 + 12));
+      let scarcity = 0;
+      if (innN >= 6) scarcity = 1;
+      if (innN >= 7) scarcity = 2;
+      if (innN >= 8) scarcity = 3;
+      if (innN >= 9) scarcity = 4;
+      if (lead < 0) scarcity = Math.min(4, scarcity + (lead <= -2 ? 2 : 1));
+      else if (lead === 0 && innN >= 6) scarcity = Math.min(4, scarcity + 1);
+      else if (lead > 0) scarcity = Math.max(0, scarcity - 1);
+      const wmap = ["alive", "alive", "warm", "hot", "critical"];
+      winnerVibe = wmap[scarcity] || "alive";
+      winnerCls = "prop-badge " + winnerVibe;
+      if (winnerVibe === "critical") winnerLabel = "On the ropes · late & short";
+      else if (winnerVibe === "hot") winnerLabel = "Getting hot · late scoreboard";
+      else if (winnerVibe === "warm") winnerLabel = "Warming · clock ticking";
+      else winnerLabel = "Live · scoreboard watch (not a Kalshi mid)";
     }
 
     rows.push(
-      '<div class="prop-card prop-game">' +
+      '<div class="prop-card prop-game vibe-' +
+        winnerVibe +
+        '">' +
         '<div class="prop-card-top">' +
         '<div class="prop-name">Brewers win</div>' +
         '<span class="' +
@@ -414,30 +528,21 @@
         '<div class="prop-statline">' +
         escHtml(away.abbr || "MIL") +
         " " +
-        (away.runs != null ? away.runs : 0) +
+        milRuns +
         " – " +
-        (home.runs != null ? home.runs : 0) +
+        oppRuns +
         " " +
         escHtml(home.abbr || "SD") +
         "</div>" +
         '<div class="prop-bar"><div class="prop-bar-fill vibe-' +
-        (data.isFinal ? (data.winnerHint === "MIL" ? "hit" : "dead") : data.isLive ? "alive" : "pre") +
+        winnerVibe +
         '" style="width:' +
-        (data.isFinal ? "100" : data.isLive ? "55" : "8") +
+        winnerPct +
         '%"></div></div>' +
         '<div class="prop-vibe">' +
-        (data.isFinal
-          ? data.winnerHint === "MIL"
-            ? "Final · Brewers cash"
-            : "Final · " + escHtml(data.winnerHint || "?")
-          : data.isLive
-            ? "Live · scoreboard watch (not a Kalshi mid)"
-            : "Pregame · waiting on first pitch") +
+        winnerLabel +
         "</div>" +
-        formatFillHtml(
-          resolveFill("brewers_win"),
-          data.isFinal ? (data.winnerHint === "MIL" ? "hit" : "dead") : data.isLive ? "alive" : "pre"
-        ) +
+        formatFillHtml(resolveFill("brewers_win"), winnerVibe) +
         "</div>"
     );
 
@@ -517,9 +622,9 @@
             : "") +
           "</div>" +
           formatFillHtml(resolveFill(p), vibe) +
-          (vibe === "alive" || vibe === "pre"
-            ? '<div class="prop-note">est from innings left × ~1 PA/inn · not a Kalshi mid</div>'
-            : "") +
+          (vibe === "hit" || vibe === "dead"
+            ? ""
+            : '<div class="prop-note">est from innings left × ~1 PA/inn · not a Kalshi mid</div>') +
           "</div>"
       );
     });
@@ -842,6 +947,8 @@
     parseGameTicker,
     renderPropsHtml,
     attachOpportunities,
+    pickDwindleVibe,
+    buildOpportunity,
     mergePropFills,
     KNOWN_PROP_FILLS,
     TRACKED_PROPS,
